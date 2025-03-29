@@ -305,14 +305,11 @@ def get_download_link(pedido_id: int, db: Session = Depends(get_db)):
     download_link = result.stdout.strip()
     return {"download_link": download_link}
 
-def get_direct_download_link(yandex_path: str) -> str:
-    """
-    Consulta la API de Yandex Disk para obtener un enlace de descarga (o previsualización)
-    directo del archivo ubicado en 'yandex_path'. El enlace es temporal y se puede usar para
-    mostrar la imagen en la web.
-    """
+def get_direct_download_link(yandex_rclone_path: str) -> str:
     api_url = "https://cloud-api.yandex.net/v1/disk/resources/download"
     headers = {"Authorization": f"OAuth {YANDEX_DISK_TOKEN}"}
+    # Convertir el formato de rclone a una ruta que acepte la API de Yandex Disk
+    yandex_path = get_yandex_disk_path(yandex_rclone_path)
     params = {"path": yandex_path}
     response = requests.get(api_url, headers=headers, params=params)
     if response.status_code == 200:
@@ -322,7 +319,8 @@ def get_direct_download_link(yandex_path: str) -> str:
             raise Exception("No se encontró 'href' en la respuesta de Yandex Disk")
         return direct_link
     else:
-        raise Exception(f"Error al obtener enlace directo: {response.text}")
+        raise Exception(f"Error al obtener enlace directo: {response.status_code} - {response.text}")
+
     
 
 @router.get("/image/url/{pedido_id}", response_model=dict)
@@ -345,3 +343,13 @@ def get_image_url(pedido_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Error generando URL directo: {str(e)}")
     
     return {"image_url": direct_url}
+
+def get_yandex_disk_path(rclone_path: str) -> str:
+    # Ejemplo: de "process-desing:process-desing/cache_original_18.webp" a "/process-desing/cache_original_18.webp"
+    try:
+        remote, path = rclone_path.split(":", 1)
+        if not path.startswith("/"):
+            path = "/" + path
+        return path
+    except Exception as e:
+        raise Exception(f"Error al extraer la ruta de Yandex Disk: {str(e)}")
