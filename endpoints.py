@@ -1,11 +1,12 @@
 import os
 import io
 import asyncio
-from fastapi import APIRouter, File, UploadFile, HTTPException, Depends, BackgroundTasks
+import subprocess
+from fastapi import APIRouter, File, UploadFile, HTTPException, Depends, BackgroundTasks, requests
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from config import UPLOAD_FOLDER, PREVIEW_ENABLED, CACHE_EXPIRATION_SECONDS, CACHE_ORIGINAL_DIR, CACHE_DESIGN_DIR
+from config import UPLOAD_FOLDER, PREVIEW_ENABLED, CACHE_EXPIRATION_SECONDS, CACHE_ORIGINAL_DIR, CACHE_DESIGN_DIR, YANDEX_DISK_TOKEN
 from database import Pedido, Diseno, get_db
 from storage import upload_to_cloud, download_from_cloud, delete_from_cloud
 from image_processing import generate_preview
@@ -121,7 +122,6 @@ async def preview_original(
     
     # 2. Revisar si la previsualización ya está en la nube
     if pedido.original_cache_path:
-        print("ENTRO A PASO 2")
         # Usar un nombre de archivo por defecto en el directorio de caché
         cache_file = os.path.join(CACHE_ORIGINAL_DIR, f"cache_original_{pedido_id}.webp")
         try:
@@ -135,7 +135,7 @@ async def preview_original(
 
     original_filename = os.path.basename(pedido.original_path)
     print(original_filename)
-    temp_download = os.path.join(UPLOAD_FOLDER, f"{original_filename}")
+    temp_download = os.path.join(UPLOAD_FOLDER, original_filename)
     print(UPLOAD_FOLDER)
     try:
         download_from_cloud(pedido.original_path, temp_download)
@@ -156,18 +156,18 @@ async def preview_original(
     return StreamingResponse(io.BytesIO(preview_bytes), media_type="image/webp")
 
 
-# Endpoint 3: Creación y registro del diseño final (Fase 2)
 @router.post("/design/{pedido_id}", response_model=dict)
 async def upload_design(pedido_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """
+    Sube el archivo del diseño final a la nube y registra la ruta en la BD.
+    """
     pedido = db.query(Pedido).filter(Pedido.id == pedido_id).first()
     if not pedido:
         raise HTTPException(status_code=404, detail="Pedido no encontrado")
     
-    # Extraer la extensión del archivo original y renombrar usando el id
     ext = os.path.splitext(file.filename)[1]
     new_filename = f"{pedido_id}_design{ext}"
     upload_path = os.path.join(UPLOAD_FOLDER, new_filename)
-    
     with open(upload_path, "wb") as f:
         content = await file.read()
         f.write(content)
@@ -175,58 +175,52 @@ async def upload_design(pedido_id: int, file: UploadFile = File(...), db: Sessio
     try:
         cloud_path = upload_to_cloud(upload_path, new_filename)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error subiendo a Yandex Disk: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error subiendo a la nube: {str(e)}")
     
     nuevo_diseno = Diseno(pedido_id=pedido_id, design_path=cloud_path)
     db.add(nuevo_diseno)
     db.commit()
     db.refresh(nuevo_diseno)
-    
     return {"design_id": nuevo_diseno.id, "estado": nuevo_diseno.estado}
 
-# Endpoint 4: Previsualización del diseño final (Fase 2)
 @router.get("/preview/design/{pedido_id}")
 async def preview_design(pedido_id: int, db: Session = Depends(get_db), background_tasks: BackgroundTasks = None):
+    """
+    Retorna la previsualización del diseño. Si no está cacheada, la genera y la sube a la nube.
+    """
     if not PREVIEW_ENABLED:
-        raise HTTPException(status_code=403, detail="Previsualización no habilitada para este usuario")
+        raise HTTPException(status_code=403, detail="Previsualización no habilitada")
     
     diseno = db.query(Diseno).filter(Diseno.pedido_id == pedido_id).first()
     if not diseno:
         raise HTTPException(status_code=404, detail="Diseño no encontrado para el pedido")
     
-    # 1. Buscar en caché local
     cache_file = get_cached_preview(pedido_id, "design")
     if cache_file:
         return StreamingResponse(open(cache_file, "rb"), media_type="image/webp")
     
-    # 2. Revisar si la previsualización ya está en la nube
     if diseno.design_cache_path:
-        local_cache = os.path.join(UPLOAD_FOLDER, f"{pedido_id}_design.webp")
+        local_cache = os.path.join(CACHE_DESIGN_DIR, f"cache_design_{pedido_id}.webp")
         try:
             download_from_cloud(diseno.design_cache_path, local_cache)
-            with open(local_cache, "rb") as f:
-                data = f.read()
-            cache_file = set_cached_preview(pedido_id, "design", data)
-            os.remove(local_cache)
-            return StreamingResponse(open(cache_file, "rb"), media_type="image/webp")
-        except Exception as e:
+            return StreamingResponse(open(local_cache, "rb"), media_type="image/webp")
+        except Exception:
             pass
     
-    # 3. Descargar el archivo de diseño y generar la previsualización
-    temp_download = os.path.join(UPLOAD_FOLDER, f"temp_{pedido_id}_design")
+    original_filename = os.path.basename(diseno.design_path)
+    temp_download = os.path.join(UPLOAD_FOLDER, original_filename)
     try:
         download_from_cloud(diseno.design_path, temp_download)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al descargar archivo: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al descargar diseño: {str(e)}")
     
     preview_bytes = await asyncio.to_thread(generate_preview, temp_download)
     cache_file = set_cached_preview(pedido_id, "design", preview_bytes)
     os.remove(temp_download)
     
-    # 4. Subir la previsualización a la nube en background y actualizar la DB
-    preview_filename = f"cache_design_{pedido_id}.webp"
+    preview_filename = f"cache_design_{pedido_id}webp"
     if background_tasks:
-        background_tasks.add_task(upload_preview_and_update_db, cache_file, preview_filename, db, diseno, "design")
+        background_tasks.add_task(upload_preview_and_update_db, cache_file, preview_filename, diseno, "design")
     
     return StreamingResponse(io.BytesIO(preview_bytes), media_type="image/webp")
 
@@ -285,3 +279,69 @@ def get_pedido(pedido_id: int, db: Session = Depends(get_db)):
             "estado": diseno.estado if diseno else None,
         }
     }
+
+@router.get("/download/link/{pedido_id}", response_model=dict)
+def get_download_link(pedido_id: int, db: Session = Depends(get_db)):
+    """
+    Genera y retorna un enlace público para descargar el archivo original asociado al pedido.
+    Se utiliza el comando 'rclone link' para generar el enlace a partir de la ruta en la nube.
+    """
+    pedido = db.query(Pedido).filter(Pedido.id == pedido_id).first()
+    if not pedido:
+        raise HTTPException(status_code=404, detail="Pedido no encontrado")
+    
+    # Se asume que la ruta original almacenada en la BD es la ruta en la nube
+    if not pedido.original_path:
+        raise HTTPException(status_code=404, detail="Archivo original no disponible")
+    
+    # Generar el enlace usando rclone
+    command = ["rclone", "link", pedido.original_path]
+    result = subprocess.run(command, capture_output=True, text=True)
+    
+    if result.returncode != 0:
+        raise HTTPException(status_code=500, detail=f"Error generando enlace de descarga: {result.stderr}")
+    
+    # El resultado contendrá el enlace público
+    download_link = result.stdout.strip()
+    return {"download_link": download_link}
+
+def get_direct_download_link(yandex_path: str) -> str:
+    """
+    Consulta la API de Yandex Disk para obtener un enlace de descarga (o previsualización)
+    directo del archivo ubicado en 'yandex_path'. El enlace es temporal y se puede usar para
+    mostrar la imagen en la web.
+    """
+    api_url = "https://cloud-api.yandex.net/v1/disk/resources/download"
+    headers = {"Authorization": f"OAuth {YANDEX_DISK_TOKEN}"}
+    params = {"path": yandex_path}
+    response = requests.get(api_url, headers=headers, params=params)
+    if response.status_code == 200:
+        data = response.json()
+        direct_link = data.get("href")
+        if not direct_link:
+            raise Exception("No se encontró 'href' en la respuesta de Yandex Disk")
+        return direct_link
+    else:
+        raise Exception(f"Error al obtener enlace directo: {response.text}")
+    
+
+@router.get("/image/url/{pedido_id}", response_model=dict)
+def get_image_url(pedido_id: int, db: Session = Depends(get_db)):
+    """
+    Genera y retorna la URL pública de la imagen (en formato .webp) almacenada en la nube para el pedido.
+    Se utiliza la API de Yandex Disk para obtener un enlace directo (como el de previsualización).
+    """
+    pedido = db.query(Pedido).filter(Pedido.id == pedido_id).first()
+    if not pedido:
+        raise HTTPException(status_code=404, detail="Pedido no encontrado")
+    
+    # Se asume que el archivo de previsualización (formato .webp) se guarda en original_cache_path
+    if not pedido.original_cache_path:
+        raise HTTPException(status_code=404, detail="Imagen no disponible en la nube")
+    
+    try:
+        direct_url = get_direct_download_link(pedido.original_cache_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generando URL directo: {str(e)}")
+    
+    return {"image_url": direct_url}

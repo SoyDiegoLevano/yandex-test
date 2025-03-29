@@ -9,6 +9,7 @@ print(os.getenv("UPLOAD_FOLDER"))
 UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER")
 CACHE_ORIGINAL_DIR = os.getenv("CACHE_ORIGINAL_DIR")
 CACHE_DESIGN_DIR = os.getenv("CACHE_DESIGN_DIR")
+YANDEX_DISK_TOKEN = os.getenv("YANDEX_DISK_TOKEN")
 
 # Tiempo de expiración para la caché en segundos (24 horas por defecto)
 CACHE_EXPIRATION_SECONDS = int(os.getenv("CACHE_EXPIRATION_SECONDS"))

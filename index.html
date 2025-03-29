@@ -119,5 +119,50 @@
       <button type="submit">Consultar Pedido ID=1</button>
     </form>
   </section>
+
+  <section>
+    <h2>Vista Previa y Descarga del Pedido 18</h2>
+    <!-- Se muestra la imagen previsualizada -->
+    <img src="http://0.0.0.0:8000/preview/original/18" alt="Previsualización Pedido 18" style="max-width: 100%; display: block; margin: 0 auto;" />
+    <br />
+    <!-- Botón que redirige al enlace de descarga -->
+    <div style="text-align: center;">
+      <a href="http://0.0.0.0:8000/download/link/18" target="_blank">
+        <button type="button" style="padding: 10px 20px; font-size: 16px;">Descargar Archivo Pedido 18</button>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Vista Previa y Descarga del Pedido 18</h2>
+    <!-- Etiqueta de imagen que se actualizará con la URL directa -->
+    <img id="pedido18-img" alt="Previsualización Pedido 18" style="max-width: 100%; display: block; margin: 0 auto;" />
+    <br />
+    <!-- Botón para descarga que utilizará el mismo enlace directo -->
+    <div style="text-align: center;">
+      <a id="pedido18-download" href="#" target="_blank">
+        <button type="button" style="padding: 10px 20px; font-size: 16px;">Descargar Archivo Pedido 18</button>
+      </a>
+    </div>
+  </section>
+
+  <script>
+    async function cargarImagenPedido(id) {
+      try {
+        const response = await fetch(`http://0.0.0.0:8000/image/url/${id}`);
+        if (!response.ok) {
+          throw new Error('Error al obtener la URL de la imagen');
+        }
+        const data = await response.json();
+        const imageUrl = data.image_url;
+        document.getElementById('pedido18-img').src = imageUrl;
+        document.getElementById('pedido18-download').href = imageUrl;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    cargarImagenPedido(18);
+  </script>
+  
 </body>
 </html>
