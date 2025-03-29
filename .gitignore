@@ -1,0 +1,10 @@
+__pycache__/
+.venv/
+build/
+dist/
+cache/cache_design/*
+!cache/cache_design/.gitkeep
+cache/cache_original/*
+!cache/cache_original/.gitkeep
+uploads/*
+!uploads/.gitkeep
