@@ -11,3 +11,6 @@ minio
 # Programas Sistema
 # inkscape 
 # RClone
+# Docker
+# Docker Compose
+# MinIO
