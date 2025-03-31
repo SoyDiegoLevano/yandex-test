@@ -42,7 +42,7 @@
     <h2>Fase 1: Recepción del Pedido</h2>
 
     <!-- 1. Crear nuevo Pedido (POST /pedido) -->
-    <form action="http://0.0.0.0:8000/pedido" method="post" enctype="multipart/form-data">
+    <form action="http://127.0.0.1:8000/pedido" method="post" enctype="multipart/form-data">
       <div>
         <label for="client_info">Cliente:</label>
         <input type="text" id="client_info" name="client_info" />
@@ -64,7 +64,7 @@
       <code>/preview/original/ID_DEL_PEDIDO</code>
     </p>
     <!-- Ejemplo de formulario "manual" (no dinámico) -->
-    <form method="get" action="http://0.0.0.0:8000/preview/original/1">
+    <form method="get" action="http://127.0.0.1:8000/preview/original/1">
       <p>Esto abriría la previsualización del pedido con ID=1</p>
       <button type="submit">Ver Previsualización de ID=1</button>
     </form>
@@ -75,7 +75,7 @@
     <h2>Fase 2: Diseño y Previsualización</h2>
 
     <!-- 3. Subir Diseño Final (POST /design/{pedido_id}) -->
-    <form action="http://0.0.0.0:8000/design/13" method="post" enctype="multipart/form-data">
+    <form action="http://127.0.0.1:8000/design/13" method="post" enctype="multipart/form-data">
       <p>(Ejemplo con pedido_id=1 en la URL)</p>
       <div>
         <label for="design_file">Diseño:</label>
@@ -91,7 +91,7 @@
       <code>/preview/design/ID_DEL_PEDIDO</code>
     </p>
     <!-- Ejemplo de formulario "manual" (no dinámico) -->
-    <form method="get" action="http://0.0.0.0:8000/preview/design/1">
+    <form method="get" action="http://127.0.0.1:8000/preview/design/1">
       <p>Esto abriría la previsualización del diseño para el pedido con ID=1</p>
       <button type="submit">Ver Previsualización de ID=1</button>
     </form>
@@ -102,7 +102,7 @@
     <h2>Fase 3: Conversión para Impresión</h2>
 
     <!-- 5. Convertir Diseño (POST /convert/{pedido_id}) -->
-    <form action="http://0.0.0.0:8000/convert/1" method="post">
+    <form action="http://127.0.0.1:8000/convert/1" method="post">
       <p>(Ejemplo con pedido_id=1 en la URL)</p>
       <button type="submit">Convertir Diseño (Pedido 1)</button>
     </form>
@@ -114,55 +114,16 @@
       <code>/pedido/ID_DEL_PEDIDO</code>
     </p>
     <!-- Ejemplo de formulario "manual" (no dinámico) -->
-    <form method="get" action="http://0.0.0.0:8000/pedido/1">
+    <form method="get" action="http://127.0.0.1:8000/pedido/1">
       <p>Esto consultaría el estado del pedido con ID=1</p>
       <button type="submit">Consultar Pedido ID=1</button>
     </form>
   </section>
 
   <section>
-    <h2>Vista Previa y Descarga del Pedido 18</h2>
-    <!-- Se muestra la imagen previsualizada -->
-    <img src="http://0.0.0.0:8000/preview/original/18" alt="Previsualización Pedido 18" style="max-width: 100%; display: block; margin: 0 auto;" />
-    <br />
-    <!-- Botón que redirige al enlace de descarga -->
-    <div style="text-align: center;">
-      <a href="http://0.0.0.0:8000/download/link/18" target="_blank">
-        <button type="button" style="padding: 10px 20px; font-size: 16px;">Descargar Archivo Pedido 18</button>
-      </a>
-    </div>
+    <img src="http://localhost:9000/preview-cache/cache_original_22.webp?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=dikals%2F20250331%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250331T162921Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&X-Amz-Signature=e45e59042391289055a849da013c0a9f3cb719fbe0da351a6a291528754eafce" alt="Previsualización Original">
   </section>
 
-  <section>
-    <h2>Vista Previa y Descarga del Pedido 18</h2>
-    <!-- Etiqueta de imagen que se actualizará con la URL directa -->
-    <img id="pedido18-img" alt="Previsualización Pedido 18" style="max-width: 100%; display: block; margin: 0 auto;" />
-    <br />
-    <!-- Botón para descarga que utilizará el mismo enlace directo -->
-    <div style="text-align: center;">
-      <a id="pedido18-download" href="#" target="_blank">
-        <button type="button" style="padding: 10px 20px; font-size: 16px;">Descargar Archivo Pedido 18</button>
-      </a>
-    </div>
-  </section>
-
-  <script>
-    async function cargarImagenPedido(id) {
-      try {
-        const response = await fetch(`http://0.0.0.0:8000/image/url/${id}`);
-        if (!response.ok) {
-          throw new Error('Error al obtener la URL de la imagen');
-        }
-        const data = await response.json();
-        const imageUrl = data.image_url;
-        document.getElementById('pedido18-img').src = imageUrl;
-        document.getElementById('pedido18-download').href = imageUrl;
-      } catch (error) {
-        console.error(error);
-      }
-    }
-    cargarImagenPedido(18);
-  </script>
   
 </body>
 </html>

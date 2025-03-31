@@ -6,7 +6,8 @@ pillow
 psycopg2-binary
 alembic
 python-multipart
-
+requests
+minio
 # Programas Sistema
 # inkscape 
 # RClone

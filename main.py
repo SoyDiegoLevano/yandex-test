@@ -18,7 +18,7 @@ app.include_router(api_router)
 
 if __name__ == "__main__":
     # En entorno de desarrollo:
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
     
     # Para producción, puedes usar múltiples workers:
     # uvicorn.run("main:app", host="0.0.0.0", port=8000, workers=4, reload=True)
